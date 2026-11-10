@@ -16,6 +16,7 @@ import {
   Terminal,
   Wifi,
   WifiOff,
+  Link2,
   X,
 } from "lucide-react";
 
@@ -83,17 +84,22 @@ export default function ApiKeyModal({
   const [pullStatusMsg, setPullStatusMsg] = useState<string | null>(null);
 
   // Cek status Ollama saat modal terbuka
-  const refreshOllama = async () => {
+  const refreshOllama = async (overrideUrl?: string) => {
     setCheckingOllama(true);
     setPullStatusMsg(null);
     try {
-      const res = await fetch("/api/ollama", { cache: "no-store" });
+      const target = overrideUrl || ollamaBaseUrl;
+      const query = target ? `?baseUrl=${encodeURIComponent(target)}` : "";
+      const res = await fetch(`/api/ollama${query}`, { cache: "no-store" });
       const data = await res.json();
       if (data && data.success) {
         setOllamaOnline(Boolean(data.online));
         setInstalledModels(Array.isArray(data.models) ? data.models : []);
         if (data.activeModel && !ollamaModel) {
           setOllamaModel(data.activeModel);
+        }
+        if (data.baseUrl && !overrideUrl && (!ollamaBaseUrl || ollamaBaseUrl === "http://127.0.0.1:11434")) {
+          setOllamaBaseUrl(data.baseUrl);
         }
       } else {
         setOllamaOnline(false);
@@ -285,6 +291,10 @@ export default function ApiKeyModal({
                     <div className="text-[10px] text-slate-400 mt-0.5">
                       {ollamaOnline
                         ? `Host: ${ollamaBaseUrl} • ${installedModels.length} Model Terpasang`
+                        : typeof window !== "undefined" &&
+                          window.location.hostname.includes("vercel.app") &&
+                          (ollamaBaseUrl.includes("127.0.0.1") || ollamaBaseUrl.includes("localhost"))
+                        ? "Di Vercel Cloud: Jalankan start-ollama-bridge.bat di laptop dan masukkan URL Tunnel di bawah agar Vercel dapat terhubung ke laptop."
                         : "Pastikan aplikasi Ollama sudah dijalankan di background Windows laptop Anda."}
                     </div>
                   </div>
@@ -292,7 +302,7 @@ export default function ApiKeyModal({
 
                 <button
                   type="button"
-                  onClick={refreshOllama}
+                  onClick={() => refreshOllama()}
                   disabled={checkingOllama}
                   title="Cek Ulang Koneksi Ollama"
                   className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
@@ -321,6 +331,40 @@ export default function ApiKeyModal({
                   />
                   <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
                 </label>
+              </div>
+
+              {/* URL Host / Bridge Tunnel Ollama */}
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Host / Cloudflare Tunnel URL Ollama</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {ollamaBaseUrl.includes("trycloudflare.com") ? "Cloud Bridge Aktif" : "Local Host"}
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={ollamaBaseUrl}
+                    onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:11434 atau https://xxx.trycloudflare.com"
+                    className="flex-1 px-3.5 py-2 rounded-lg bg-[#090D14] border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => refreshOllama(ollamaBaseUrl)}
+                    disabled={checkingOllama}
+                    className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${checkingOllama ? "animate-spin" : ""}`} />
+                    <span>Uji</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  *Di <b>Vercel Cloud</b>, masukkan URL Tunnel dari <code>start-ollama-bridge.bat</code> agar Vercel dapat mengakses GPU/Ollama laptop Anda. Jika membuka di <b>Localhost</b>, gunakan <code>http://127.0.0.1:11434</code>.
+                </p>
               </div>
 
               {/* Mode Prioritas AI Provider */}

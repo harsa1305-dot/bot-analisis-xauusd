@@ -4,7 +4,7 @@ import {
   getOllamaModels,
   pullOllamaModel,
 } from "@/lib/ollamaClient";
-import { getAppConfig, saveAppConfig } from "@/lib/signalStore";
+import { getAppConfig, getEffectiveKeys, saveAppConfig } from "@/lib/signalStore";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +12,11 @@ export const dynamic = "force-dynamic";
  * GET /api/ollama
  * Cek status daemon Ollama di laptop & daftar model yang terpasang
  */
-export async function GET() {
-  const cfg = getAppConfig();
-  const baseUrl = cfg.ollamaBaseUrl || "http://127.0.0.1:11434";
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const queryUrl = searchParams.get("baseUrl")?.trim();
+  const effective = getEffectiveKeys();
+  const baseUrl = queryUrl || effective.ollamaBaseUrl || "http://127.0.0.1:11434";
   const status = await checkOllamaStatus(baseUrl);
   const models = await getOllamaModels(baseUrl);
 
@@ -28,8 +30,8 @@ export async function GET() {
       size: m.size,
       modified_at: m.modified_at,
     })),
-    activeModel: cfg.ollamaModel || (models[0]?.name ?? "qwen2.5:3b"),
-    useOllama: cfg.useOllama !== false,
+    activeModel: effective.ollamaModel || (models[0]?.name ?? "qwen2.5:1.5b"),
+    useOllama: effective.useOllama !== false,
   });
 }
 

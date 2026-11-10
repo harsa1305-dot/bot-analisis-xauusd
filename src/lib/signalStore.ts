@@ -100,11 +100,22 @@ export function getEffectiveKeys(): {
     process.env.TWELVEDATA_API_KEY ||
     "";
   const useOllama = cfg.useOllama !== false;
-  const ollamaModel = (cfg.ollamaModel && cfg.ollamaModel.trim()) || "qwen2.5:3b";
-  const ollamaBaseUrl =
-    (cfg.ollamaBaseUrl && cfg.ollamaBaseUrl.trim()) ||
-    process.env.OLLAMA_BASE_URL ||
-    "http://127.0.0.1:11434";
+  const ollamaModel = (cfg.ollamaModel && cfg.ollamaModel.trim()) || "qwen2.5:1.5b";
+
+  const envOllamaUrl = (process.env.OLLAMA_BASE_URL && process.env.OLLAMA_BASE_URL.trim()) || "";
+  let ollamaBaseUrl = (cfg.ollamaBaseUrl && cfg.ollamaBaseUrl.trim()) || "";
+
+  // Jika di hosting Vercel Cloud dan URL lokal (127.0.0.1/localhost), gunakan URL Tunnel dari env
+  if (process.env.VERCEL) {
+    if (envOllamaUrl && (!ollamaBaseUrl || ollamaBaseUrl.includes("127.0.0.1") || ollamaBaseUrl.includes("localhost"))) {
+      ollamaBaseUrl = envOllamaUrl;
+    }
+  }
+
+  if (!ollamaBaseUrl) {
+    ollamaBaseUrl = envOllamaUrl || "http://127.0.0.1:11434";
+  }
+
   const aiProvider = cfg.aiProvider || "auto";
 
   return {

@@ -3,12 +3,22 @@ import fs from "fs";
 
 const CLOUDFLARED_PATH = "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe";
 
-console.log("Menghubungkan Ollama ke Cloudflare Tunnel...");
+console.log("Menghubungkan Ollama ke Cloudflare Tunnel dengan Host Rewrite...");
 
-const proc = spawn(CLOUDFLARED_PATH, ["tunnel", "--url", "http://127.0.0.1:11434"], {
-  windowsHide: true,
-  stdio: ["ignore", "pipe", "pipe"],
-});
+const proc = spawn(
+  CLOUDFLARED_PATH,
+  [
+    "tunnel",
+    "--url",
+    "http://127.0.0.1:11434",
+    "--http-host-header",
+    "localhost:11434"
+  ],
+  {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  }
+);
 
 let found = false;
 
@@ -30,4 +40,3 @@ setTimeout(() => {
     process.exit(1);
   }
 }, 25000);
-
