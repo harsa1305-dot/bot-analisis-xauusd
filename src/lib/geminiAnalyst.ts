@@ -584,39 +584,61 @@ export async function generateGoldSignalWithAI(
   if (aiProvider !== "ollama" && geminiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `Analisa paket data XAU/USD berikut. Pilih kandidat limit order terbaik (via "id") atau WAIT. Untuk WAIT isi candidateId dengan "NONE".\n\n${JSON.stringify(
-          buildLlmPayload(marketData, news),
-          null,
-          2
-        )}`,
-        config: {
-          systemInstruction: GOLD_ANALYST_SYSTEM_PROMPT,
-          temperature: 0.2,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              decision: { type: Type.STRING, enum: ["TAKE_CANDIDATE", "WAIT"] },
-              candidateId: { type: Type.STRING },
-              confidence: { type: Type.NUMBER },
-              marketBias: { type: Type.STRING },
-              reasoning: { type: Type.STRING },
-              keyFactors: { type: Type.ARRAY, items: { type: Type.STRING } },
-              newsOutlook: { type: Type.STRING },
+      const candidateModels = [
+        process.env.GEMINI_MODEL,
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-2.5-flash",
+      ].filter(Boolean) as string[];
+
+      let responseText = "";
+      let usedModel = "Gemini Flash";
+
+      for (const model of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: `Analisa paket data XAU/USD berikut. Pilih kandidat limit order terbaik (via "id") atau WAIT. Untuk WAIT isi candidateId dengan "NONE".\n\n${JSON.stringify(
+              buildLlmPayload(marketData, news),
+              null,
+              2
+            )}`,
+            config: {
+              systemInstruction: GOLD_ANALYST_SYSTEM_PROMPT,
+              temperature: 0.2,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  decision: { type: Type.STRING, enum: ["TAKE_CANDIDATE", "WAIT"] },
+                  candidateId: { type: Type.STRING },
+                  confidence: { type: Type.NUMBER },
+                  marketBias: { type: Type.STRING },
+                  reasoning: { type: Type.STRING },
+                  keyFactors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  newsOutlook: { type: Type.STRING },
+                },
+                required: DECISION_REQUIRED,
+              },
             },
-            required: DECISION_REQUIRED,
-          },
-        },
-      });
-      if (response.text) {
+          });
+          if (response.text) {
+            responseText = response.text;
+            usedModel = `Gemini (${model})`;
+            break;
+          }
+        } catch {
+          // coba model berikutnya
+        }
+      }
+
+      if (responseText) {
         return applyLlmDecision(
-          JSON.parse(response.text),
+          JSON.parse(responseText),
           marketData,
           news,
           "GEMINI_2_5_FLASH",
-          "Gemini 2.5 Flash",
+          usedModel,
           triggerType
         );
       }

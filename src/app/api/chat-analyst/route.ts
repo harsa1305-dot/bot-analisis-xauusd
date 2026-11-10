@@ -186,41 +186,52 @@ ${newsInfo}
       }
     }
 
-    // 3B. Coba Gemini 2.5 Flash jika OpenAI belum membalas
+    // 3C. Coba Gemini Flash jika OpenAI belum membalas
     if (!reply && geminiApiKey) {
-      try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
-        const gRes = await fetch(geminiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: systemPrompt },
-                  {
-                    text: `Pertanyaan Pengguna:\n${
-                      quickAction ? `[Aksi Cepat: ${quickAction}] ` : ""
-                    }${userMessage}`,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 650,
-            },
-          }),
-        });
+      const candidateModels = [
+        process.env.GEMINI_MODEL,
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-2.5-flash",
+      ].filter(Boolean) as string[];
 
-        if (gRes.ok) {
-          const gJson = await gRes.json();
-          reply =
-            gJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      for (const m of candidateModels) {
+        try {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiApiKey}`;
+          const gRes = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: systemPrompt },
+                    {
+                      text: `Pertanyaan Pengguna:\n${
+                        quickAction ? `[Aksi Cepat: ${quickAction}] ` : ""
+                      }${userMessage}`,
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 650,
+              },
+            }),
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (gRes.ok) {
+            const gJson = await gRes.json();
+            reply =
+              gJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+            if (reply) break;
+          }
+        } catch {
+          // Coba candidate model berikutnya
         }
-      } catch {
-        // Fallback below
       }
     }
 

@@ -81,3 +81,4 @@ Proyek ini telah dioptimalkan untuk deployment ke Vercel:
 1. Hubungkan repository GitHub ini di dashboard [Vercel](https://vercel.com).
 2. Tambahkan Environment Variables yang diinginkan (`OPENAI_API_KEY` atau `GEMINI_API_KEY`).
 3. Klik **Deploy**!
+
